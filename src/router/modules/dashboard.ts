@@ -37,6 +37,15 @@ export const dashboardRoutes: AppRouteRecord = {
         title: 'menus.dashboard.financeScreen',
         keepAlive: false
       }
+    },
+    {
+      path: 'deep-analysis',
+      name: 'DeepAnalysis',
+      component: '/dashboard/deep-analysis',
+      meta: {
+        title: 'menus.dashboard.deepAnalysis',
+        keepAlive: false
+      }
     }
   ]
 }

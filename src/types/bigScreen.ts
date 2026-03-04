@@ -32,6 +32,54 @@ export interface RegionStats {
   children?: RegionStats[]
 }
 
+/** 投放分析 KPI 卡片 - 今日已花费 */
+export interface KpiCardSpend {
+  type: 'spend'
+  title: string
+  status: 'normal' | 'warn' | 'danger'
+  statusText: string
+  value: number
+  budgetPercent: number
+  budgetText: string
+  trendPercent: number
+  trendVs: string
+}
+
+/** 投放分析 KPI 卡片 - 今日预估ROI */
+export interface KpiCardRoi {
+  type: 'roi'
+  title: string
+  status: 'met' | 'below'
+  statusText: string
+  value: number
+  target: number
+  targetText: string
+  trendPercent: number
+  trendVs: string
+}
+
+/** 投放分析 KPI 卡片 - 今日预估利润 */
+export interface KpiCardProfit {
+  type: 'profit'
+  title: string
+  trendLabel: string
+  value: number
+  trendPercent: number
+  trendVs: string
+}
+
+/** 投放分析 KPI 卡片 - 异常广告系列 */
+export interface KpiCardAbnormal {
+  type: 'abnormal'
+  title: string
+  value: number
+  trendPercent: number
+  trendVs: string
+  viewButtonText: string
+}
+
+export type KpiCardItem = KpiCardSpend | KpiCardRoi | KpiCardProfit | KpiCardAbnormal
+
 /** 大屏总览数据 */
 export interface BigScreenOverview {
   /** 汇总指标 */
@@ -46,4 +94,6 @@ export interface BigScreenOverview {
   regions: RegionStats[]
   /** 数据时间说明 */
   dataTime?: string
+  /** 投放分析顶部 KPI 卡片（今日已花费、ROI、利润、异常） */
+  kpiCards?: KpiCardItem[]
 }

@@ -9,575 +9,784 @@
         transformOrigin: '0 0'
       }"
     >
-      <!-- 顶栏 -->
+      <!-- 顶栏：日期 + 筛选 + 导出 -->
       <header class="finance-header">
-        <div class="header-left">
-          <span class="logo-text">金融客户分析平台</span>
+        <div class="header-left">{{ currentTime }}</div>
+        <div class="header-filters">
+          <span class="filter-item">全部Apps</span>
+          <span class="filter-divider">|</span>
+          <span class="filter-item">IOS & Android</span>
+          <span class="filter-divider">|</span>
+          <span class="filter-item">全部渠道</span>
         </div>
-        <h1 class="header-title">金融客户分析平台</h1>
-        <div class="header-right">{{ currentTime }}</div>
+        <div class="header-right">
+          <button type="button" class="btn-export">导出报表</button>
+        </div>
       </header>
 
-      <!-- 主体：左 | 地图 | 右 -->
-      <section class="finance-body">
-        <!-- 左侧面板 -->
-        <aside class="panel panel-left">
-          <div class="block">
-            <div class="block-title">
-              <span class="icon">⚡</span> 机构客户分析
-            </div>
-            <div class="kpi-main">
-              <span class="kpi-value">{{ summary.nationalNewClients }}</span>
-              <span class="kpi-label">全国新增客户数</span>
-            </div>
-            <p class="kpi-compare down">同比昨日下降 {{ Math.abs(summary.compareYesterday) }}</p>
-            <div class="gauges">
-              <div ref="gaugeCoverRef" class="gauge-dom"></div>
-              <div ref="gaugePenetrateRef" class="gauge-dom"></div>
-            </div>
-            <div class="gauge-labels">
-              <span>目标客户覆盖率</span>
-              <span>目标客户渗透率</span>
-            </div>
+      <!-- 第一排：渠道 KPI 卡片 -->
+      <section class="row row-1">
+        <div v-for="card in channelKpiCards" :key="card.id" class="kpi-card">
+          <div class="kpi-card-head">
+            <span class="kpi-card-name">{{ card.name }}</span>
           </div>
-          <div class="block">
-            <div class="block-title">
-              <span class="icon">📈</span> 新增客户趋势
-            </div>
-            <div ref="trendLineRef" class="chart-dom"></div>
+          <div class="kpi-card-roi">
+            <span class="roi-value">{{ card.roi }}</span>
+            <span class="roi-change" :class="card.roiChangeUp ? 'up' : 'down'">
+              {{ card.roiChangeUp ? '+' : '' }}{{ card.roiChange }}%
+            </span>
           </div>
-          <div class="block">
-            <div class="block-title">
-              <span class="icon">📊</span> 新增客户渠道对比
-            </div>
-            <div ref="channelBarRef" class="chart-dom"></div>
+          <div class="kpi-card-metrics">
+            <span>花费 {{ card.cost }}</span>
+            <span>收入 {{ card.revenue }}</span>
+            <span>CPI {{ card.cpi }}</span>
           </div>
-        </aside>
+          <div class="kpi-card-quality">
+            质量评分 {{ card.qualityScore }}/{{ card.qualityMax }} 星
+          </div>
+          <div :ref="(el) => setCardChartRef(card.id, el)" class="kpi-card-mini-chart"></div>
+        </div>
+      </section>
 
-        <!-- 中间：中国地图 -->
-        <main class="panel panel-center">
-          <div ref="chinaMapRef" class="china-map-dom"></div>
-        </main>
+      <!-- 第二排：ROI 趋势 | 用户质量热力图 | 渠道质量雷达 -->
+      <section class="row row-2">
+        <div class="panel panel-trend">
+          <div class="panel-title">渠道ROI趋势分析 (最近30天)</div>
+          <div ref="roiTrendRef" class="chart-dom"></div>
+        </div>
+        <div class="panel panel-heatmap">
+          <div class="panel-title">用户质量热力图</div>
+          <div class="heatmap-wrap">
+            <table class="heatmap-table">
+              <thead>
+                <tr>
+                  <th>渠道</th>
+                  <th>D1留存</th>
+                  <th>D7留存</th>
+                  <th>D30留存</th>
+                  <th>支付比例</th>
+                  <th>ARPU</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in userQualityHeatmap" :key="row.channel">
+                  <td class="cell-channel">{{ row.channel }}</td>
+                  <td :class="heatmapCellClass(row.d1Retention, 50)">{{ row.d1Retention }}%</td>
+                  <td :class="heatmapCellClass(row.d7Retention, 35)">{{ row.d7Retention }}%</td>
+                  <td :class="heatmapCellClass(row.d30Retention, 16)">{{ row.d30Retention }}%</td>
+                  <td :class="heatmapCellClass(row.payRate, 4)">{{ row.payRate }}%</td>
+                  <td :class="heatmapCellClass(row.arpu * 20, 50)">${{ row.arpu.toFixed(2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel panel-radar">
+          <div class="panel-title">渠道质量得分</div>
+          <div ref="radarRef" class="chart-dom"></div>
+        </div>
+      </section>
 
-        <!-- 右侧面板 -->
-        <aside class="panel panel-right">
-          <div class="block">
-            <div class="block-title">
-              <span class="icon">📊</span> 客户活跃趋势
-            </div>
-            <div ref="activityBarRef" class="chart-dom"></div>
+      <!-- 第三排：渠道指标比较详情表格 -->
+      <section class="row row-3">
+        <div class="panel panel-table">
+          <div class="panel-title">渠道指标比较详情</div>
+          <div class="table-wrap">
+            <table class="detail-table">
+              <thead>
+                <tr>
+                  <th>渠道名称</th>
+                  <th>花费</th>
+                  <th>收入</th>
+                  <th>ROI</th>
+                  <th>ROAS</th>
+                  <th>CPI</th>
+                  <th>安装量</th>
+                  <th>User Quality (D7)</th>
+                  <th>User Quality(Pay%)</th>
+                  <th>LTV_7</th>
+                  <th>LTV_30</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in paginatedMetrics" :key="row.channel">
+                  <td>{{ row.channel }}</td>
+                  <td>{{ row.cost }}</td>
+                  <td>{{ row.revenue }}</td>
+                  <td>
+                    <span>{{ row.roi }}</span>
+                    <span class="mini-bar" :class="row.roiTrendUp ? 'up' : 'down'"></span>
+                  </td>
+                  <td>{{ row.roas }}</td>
+                  <td>
+                    <span>${{ row.cpi }}</span>
+                    <span class="mini-bar" :class="row.cpiTrendUp ? 'down' : 'up'"></span>
+                  </td>
+                  <td>{{ row.installs }}</td>
+                  <td>
+                    <span>{{ row.userQualityD7 }}%</span>
+                    <span class="arrow" :class="row.userQualityD7TrendUp ? 'up' : 'down'">{{
+                      row.userQualityD7TrendUp ? '↑' : '↓'
+                    }}</span>
+                    <span class="mini-bar" :class="row.userQualityD7TrendUp ? 'up' : 'down'"></span>
+                  </td>
+                  <td>
+                    <span>{{ row.userQualityPay }}%</span>
+                    <span class="arrow" :class="row.userQualityPayTrendUp ? 'up' : 'down'">{{
+                      row.userQualityPayTrendUp ? '↑' : '↓'
+                    }}</span>
+                    <span
+                      class="mini-bar"
+                      :class="row.userQualityPayTrendUp ? 'up' : 'down'"
+                    ></span>
+                  </td>
+                  <td>${{ row.ltv7.toFixed(2) }}</td>
+                  <td>${{ row.ltv30.toFixed(2) }}</td>
+                  <td>
+                    <span class="status-dot" :class="row.status"></span>
+                    {{ statusText(row.status) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div class="block">
-            <div class="block-title">
-              <span class="icon">🥧</span> 客户类型分布
-            </div>
-            <div ref="clientPieRef" class="chart-dom"></div>
+          <div class="pagination-wrap">
+            <button
+              type="button"
+              class="page-btn"
+              :disabled="currentPage <= 1"
+              @click="currentPage = Math.max(1, currentPage - 1)"
+            >
+              &lt;
+            </button>
+            <button
+              v-for="p in pageNumbers"
+              :key="p"
+              type="button"
+              class="page-btn"
+              :class="{ active: p === currentPage }"
+              @click="currentPage = p"
+            >
+              {{ p }}
+            </button>
+            <button
+              type="button"
+              class="page-btn"
+              :disabled="currentPage >= totalPages"
+              @click="currentPage = Math.min(totalPages, currentPage + 1)"
+            >
+              &gt;
+            </button>
+            <span class="page-size">10条/页</span>
+            <span class="page-jump"
+              >跳至
+              <input
+                v-model.number="pageJump"
+                type="number"
+                min="1"
+                :max="totalPages"
+                @change="onPageJump"
+              />
+              页</span
+            >
           </div>
-          <div class="block">
-            <div class="block-title">
-              <span class="icon">📋</span> 客户活跃排名
-            </div>
-            <div class="rank-table-wrap">
-              <table class="rank-table">
-                <thead>
-                  <tr>
-                    <th>序号</th>
-                    <th>区域</th>
-                    <th>类型</th>
-                    <th>数值</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in activityRank" :key="row.no">
-                    <td>{{ row.no }}</td>
-                    <td>{{ row.name }}</td>
-                    <td>{{ row.type }}</td>
-                    <td>{{ row.value }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </aside>
+        </div>
       </section>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import { useChart } from '@/hooks/core/useChart'
-import { echarts, type EChartsOption } from '@/plugins/echarts'
-import {
-  MOCK_FINANCE_SUMMARY,
-  MOCK_TREND_LINE,
-  MOCK_CHANNELS,
-  MOCK_ACTIVITY_TREND,
-  MOCK_CLIENT_TYPES,
-  MOCK_ACTIVITY_RANK,
-  MOCK_MAP_LINES,
-  MOCK_MAP_SCATTER
-} from './mock'
-import chinaMapData from 'china-map-echarts'
+  import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+  import { useChart } from '@/hooks/core/useChart'
+  import type { EChartsOption } from '@/plugins/echarts'
+  import {
+    MOCK_CHANNEL_KPI_CARDS,
+    MOCK_CHANNEL_ROI_TREND,
+    MOCK_USER_QUALITY_HEATMAP,
+    MOCK_RADAR_INDICATORS,
+    MOCK_CHANNEL_RADAR,
+    MOCK_CHANNEL_METRICS,
+    type ChannelKpiCard,
+    type ChannelMetricRow,
+    type ChannelStatus
+  } from './mock'
 
-defineOptions({ name: 'FinanceScreen' })
+  defineOptions({ name: 'FinanceScreen' })
 
-const designWidth = 1920
-const designHeight = 1080
+  const designWidth = 1920
+  const designHeight = 1080
+  const pageSize = 10
 
-const rootRef = ref<HTMLElement>()
-const scale = ref(1)
-const updateScale = () => {
-  const el = rootRef.value
-  if (!el) return
-  const w = el.clientWidth
-  if (w <= 0) return
-  scale.value = w / designWidth
-}
-
-const currentTime = ref('')
-const updateTime = () => {
-  const now = new Date()
-  const week = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()]
-  currentTime.value = `${week} ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-}
-let timeTimer: ReturnType<typeof setInterval> | null = null
-
-const summary = ref(MOCK_FINANCE_SUMMARY)
-const activityRank = ref(MOCK_ACTIVITY_RANK)
-
-const gaugeCoverRef = ref<HTMLElement>()
-const gaugePenetrateRef = ref<HTMLElement>()
-const trendLineRef = ref<HTMLElement>()
-const channelBarRef = ref<HTMLElement>()
-const chinaMapRef = ref<HTMLElement>()
-const activityBarRef = ref<HTMLElement>()
-const clientPieRef = ref<HTMLElement>()
-
-const chartGaugeCover = useChart()
-const chartGaugePenetrate = useChart()
-const chartTrendLine = useChart()
-const chartChannelBar = useChart()
-const chartChinaMap = useChart()
-const chartActivityBar = useChart()
-const chartClientPie = useChart()
-
-const theme = {
-  color1: '#4ABEFF',
-  color2: '#14DEBA',
-  axis: '#8b9dc3',
-  label: '#b8c5d9'
-}
-
-function buildGaugeOption(percent: number, color: string): EChartsOption {
-  return {
-    series: [
-      {
-        type: 'gauge',
-        startAngle: 200,
-        endAngle: -20,
-        min: 0,
-        max: 100,
-        splitNumber: 5,
-        radius: '75%',
-        center: ['50%', '60%'],
-        axisLine: {
-          lineStyle: { width: 8, color: [[1, 'rgba(255,255,255,0.1)']] }
-        },
-        progress: { show: true, width: 8, itemStyle: { color } },
-        pointer: { show: false },
-        axisTick: { show: false },
-        splitLine: { show: false },
-        axisLabel: { show: false },
-        detail: {
-          valueAnimation: true,
-          offsetCenter: [0, 0],
-          fontSize: 20,
-          fontWeight: 'bold',
-          color: theme.label,
-          formatter: '{value}%'
-        },
-        data: [{ value: percent }]
-      }
-    ]
+  const rootRef = ref<HTMLElement>()
+  const scale = ref(1)
+  const updateScale = () => {
+    const el = rootRef.value
+    if (!el) return
+    const w = el.clientWidth
+    if (w <= 0) return
+    scale.value = w / designWidth
   }
-}
 
-function buildTrendLineOption(): EChartsOption {
-  const d = MOCK_TREND_LINE
-  return {
-    grid: { left: 40, right: 20, top: 20, bottom: 30 },
-    xAxis: { type: 'category', data: d.xAxis, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } }, axisLabel: { color: theme.axis } },
-    yAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }, axisLabel: { color: theme.axis } },
-    series: [
-      { type: 'line', name: 'Sales', data: d.sales, smooth: true, areaStyle: { color: theme.color1, opacity: 0.4 }, lineStyle: { color: theme.color1 }, itemStyle: { color: theme.color1 } },
-      { type: 'line', name: 'Profit', data: d.profit, smooth: true, areaStyle: { color: theme.color2, opacity: 0.4 }, lineStyle: { color: theme.color2 }, itemStyle: { color: theme.color2 } }
-    ]
+  const currentTime = ref('')
+  const updateTime = () => {
+    const now = new Date()
+    const week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][now.getDay()]
+    currentTime.value = `今天${week}, ${now.getFullYear()}年${String(now.getMonth() + 1).padStart(2, '0')}月${String(now.getDate()).padStart(2, '0')}日`
   }
-}
+  let timeTimer: ReturnType<typeof setInterval> | null = null
 
-function buildChannelBarOption(): EChartsOption {
-  const names = MOCK_CHANNELS.map((c) => c.name)
-  const values = MOCK_CHANNELS.map((c) => c.value)
-  const max = Math.max(...values)
-  return {
-    grid: { left: 60, right: 80, top: 10, bottom: 20 },
-    xAxis: { type: 'value', max, axisLine: { show: false }, splitLine: { show: false }, axisLabel: { color: theme.axis } },
-    yAxis: { type: 'category', data: names, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: theme.label } },
-    series: [
-      {
-        type: 'bar',
-        data: values.map((v, i) => ({ value: v, itemStyle: { color: theme.color1 } })),
-        barWidth: '60%',
-        label: { show: true, position: 'right', color: theme.label, formatter: (p: any) => p.value.toLocaleString() }
-      }
-    ]
-  }
-}
+  const channelKpiCards = ref<ChannelKpiCard[]>(MOCK_CHANNEL_KPI_CARDS)
+  const userQualityHeatmap = ref(MOCK_USER_QUALITY_HEATMAP)
+  const channelMetrics = ref<ChannelMetricRow[]>(MOCK_CHANNEL_METRICS)
 
-function buildChinaMapOption(): EChartsOption {
-  const lineData = MOCK_MAP_LINES.map((item) => ({
-    coords: item.coords,
-    lineStyle: { color: theme.color1, width: 1, opacity: 0.6 },
-    effect: { show: true, symbol: 'circle', symbolSize: 4, trailLength: 0.4, color: theme.color1 }
-  }))
-  return {
-    tooltip: { trigger: 'item' },
-    geo: {
-      map: 'china',
-      roam: true,
-      zoom: 1.1,
-      itemStyle: {
-        areaColor: 'rgba(30, 60, 90, 0.6)',
-        borderColor: 'rgba(100, 140, 180, 0.5)',
-        borderWidth: 0.8
-      },
-      label: {
-        show: true,
-        color: '#b8c5d9',
-        fontSize: 11,
-        fontWeight: 'normal'
-      },
-      emphasis: {
-        itemStyle: { areaColor: 'rgba(50, 100, 150, 0.8)' },
-        label: { show: true, color: '#e8edf5', fontSize: 12 }
-      }
-    },
-    series: [
-      {
-        type: 'lines',
-        coordinateSystem: 'geo',
-        data: lineData,
-        polyline: false,
-        lineStyle: { curveness: 0.2 }
-      },
-      {
-        type: 'effectScatter',
-        coordinateSystem: 'geo',
-        data: MOCK_MAP_SCATTER.map((item) => ({ value: [item[0], item[1]] })),
-        symbolSize: 10,
-        showEffectOn: 'emphasis',
-        rippleEffect: { scale: 2, brushType: 'stroke' },
-        itemStyle: { color: theme.color1, shadowBlur: 8 }
-      }
-    ]
-  }
-}
-
-function buildActivityBarOption(): EChartsOption {
-  const d = MOCK_ACTIVITY_TREND
-  return {
-    grid: { left: 40, right: 20, top: 20, bottom: 30 },
-    xAxis: { type: 'category', data: d.xAxis, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } }, axisLabel: { color: theme.axis } },
-    yAxis: { type: 'value', axisLine: { show: false }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }, axisLabel: { color: theme.axis } },
-    series: [
-      { type: 'bar', name: 'Sales', data: d.sales, barWidth: '35%', itemStyle: { color: theme.color1 } },
-      { type: 'bar', name: 'Profit', data: d.profit, barWidth: '35%', itemStyle: { color: theme.color2 } }
-    ]
-  }
-}
-
-function buildClientPieOption(): EChartsOption {
-  const d = MOCK_CLIENT_TYPES
-  return {
-    tooltip: { trigger: 'item' },
-    series: [
-      {
-        type: 'pie',
-        radius: ['45%', '70%'],
-        center: ['50%', '50%'],
-        data: d.map((item, i) => ({
-          ...item,
-          itemStyle: {
-            color: [theme.color1, theme.color2, '#9a60b4', '#e6c547', '#5b8ff9'][i % 5]
-          }
-        })),
-        label: { color: theme.label },
-        emphasis: { itemStyle: { shadowBlur: 10 } }
-      }
-    ],
-    graphic: [
-      {
-        type: 'text',
-        left: 'center',
-        top: '45%',
-        style: { text: `${summary.value.activityRate}%`, fontSize: 22, fontWeight: 'bold', fill: theme.label },
-        z: 10
-      },
-      {
-        type: 'text',
-        left: 'center',
-        top: '52%',
-        style: { text: '活跃度', fontSize: 12, fill: theme.axis },
-        z: 10
-      }
-    ]
-  }
-}
-
-let resizeObserver: ResizeObserver | null = null
-
-function initChinaMap() {
-  if (!chinaMapRef.value) return
-  const chinaJson = (chinaMapData as { map_100000?: unknown }).map_100000
-  if (chinaJson) {
-    echarts.registerMap('china', chinaJson as Parameters<typeof echarts.registerMap>[1])
-    chartChinaMap.chartRef!.value = chinaMapRef.value
-    chartChinaMap.initChart(buildChinaMapOption())
-  }
-}
-
-onMounted(() => {
-  updateScale()
-  updateTime()
-  timeTimer = setInterval(updateTime, 1000)
-  if (rootRef.value) {
-    resizeObserver = new ResizeObserver(() => updateScale())
-    resizeObserver.observe(rootRef.value)
-  }
-  window.addEventListener('resize', updateScale)
-
-  nextTick(() => {
-    if (gaugeCoverRef.value) {
-      chartGaugeCover.chartRef!.value = gaugeCoverRef.value
-      chartGaugeCover.initChart(buildGaugeOption(summary.value.targetCoverageRate, theme.color1))
+  const currentPage = ref(1)
+  const pageJump = ref(1)
+  const totalPages = computed(() => Math.max(1, Math.ceil(channelMetrics.value.length / pageSize)))
+  const pageNumbers = computed(() => {
+    const total = totalPages.value
+    const p = currentPage.value
+    const pages: number[] = []
+    for (let i = Math.max(1, p - 2); i <= Math.min(total, p + 2); i++) {
+      pages.push(i)
     }
-    if (gaugePenetrateRef.value) {
-      chartGaugePenetrate.chartRef!.value = gaugePenetrateRef.value
-      chartGaugePenetrate.initChart(buildGaugeOption(summary.value.targetPenetrationRate, theme.color2))
-    }
-    if (trendLineRef.value) {
-      chartTrendLine.chartRef!.value = trendLineRef.value
-      chartTrendLine.initChart(buildTrendLineOption())
-    }
-    if (channelBarRef.value) {
-      chartChannelBar.chartRef!.value = channelBarRef.value
-      chartChannelBar.initChart(buildChannelBarOption())
-    }
-    initChinaMap()
-    if (activityBarRef.value) {
-      chartActivityBar.chartRef!.value = activityBarRef.value
-      chartActivityBar.initChart(buildActivityBarOption())
-    }
-    if (clientPieRef.value) {
-      chartClientPie.chartRef!.value = clientPieRef.value
-      chartClientPie.initChart(buildClientPieOption())
-    }
+    return pages
   })
-})
+  const paginatedMetrics = computed(() => {
+    const start = (currentPage.value - 1) * pageSize
+    return channelMetrics.value.slice(start, start + pageSize)
+  })
 
-onUnmounted(() => {
-  if (timeTimer) clearInterval(timeTimer)
-  if (resizeObserver && rootRef.value) {
-    resizeObserver.unobserve(rootRef.value)
-    resizeObserver = null
+  function onPageJump() {
+    const v = Math.max(1, Math.min(totalPages.value, Number(pageJump.value) || 1))
+    currentPage.value = v
+    pageJump.value = v
   }
-  window.removeEventListener('resize', updateScale)
-  ;[chartGaugeCover, chartGaugePenetrate, chartTrendLine, chartChannelBar, chartChinaMap, chartActivityBar, chartClientPie].forEach((c) => c.destroyChart?.())
-})
+
+  function statusText(s: ChannelStatus) {
+    const map: Record<ChannelStatus, string> = { excellent: '优秀', average: '一般', poor: '较差' }
+    return map[s] ?? s
+  }
+
+  /** 热力图单元格：高于阈值绿色，低于阈值红色 */
+  function heatmapCellClass(value: number, threshold: number) {
+    return value >= threshold ? 'cell-high' : 'cell-low'
+  }
+
+  const cardChartRefs = ref<Record<string, HTMLElement>>({})
+  function setCardChartRef(id: string, el: unknown) {
+    if (el instanceof HTMLElement) {
+      cardChartRefs.value[id] = el
+    } else if (el === null) {
+      delete cardChartRefs.value[id]
+    }
+  }
+
+  const roiTrendRef = ref<HTMLElement>()
+  const radarRef = ref<HTMLElement>()
+
+  const chartRoiTrend = useChart()
+  const chartRadar = useChart()
+  const theme = {
+    color1: '#4ABEFF',
+    color2: '#14DEBA',
+    color3: '#9a60b4',
+    color4: '#e6c547',
+    color5: '#5b8ff9',
+    axis: '#8b9dc3',
+    label: '#b8c5d9'
+  }
+
+  const colors = [theme.color1, theme.color2, theme.color3, theme.color4, theme.color5]
+
+  function buildMiniTrendOption(data: number[]): EChartsOption {
+    return {
+      grid: { left: 2, right: 2, top: 2, bottom: 2 },
+      xAxis: { type: 'category', data: data.map((_, i) => i), show: false },
+      yAxis: {
+        type: 'value',
+        show: false,
+        scale: true,
+        min: (v: { min: number }) => v.min * 0.9,
+        max: (v: { max: number }) => v.max * 1.1
+      },
+      series: [
+        {
+          type: 'line',
+          data,
+          smooth: true,
+          symbol: 'none',
+          lineStyle: { color: theme.color1, width: 1.5 },
+          areaStyle: { color: theme.color1, opacity: 0.3 }
+        }
+      ]
+    }
+  }
+
+  function buildRoiTrendOption(): EChartsOption {
+    const d = MOCK_CHANNEL_ROI_TREND
+    return {
+      tooltip: { trigger: 'axis' },
+      legend: {
+        data: d.series.map((s) => s.name),
+        bottom: 0,
+        textStyle: { color: theme.label, fontSize: 11 }
+      },
+      grid: { left: 50, right: 24, top: 24, bottom: 36 },
+      xAxis: {
+        type: 'category',
+        data: d.dates,
+        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
+        axisLabel: { color: theme.axis, fontSize: 11 }
+      },
+      yAxis: {
+        type: 'value',
+        min: 0,
+        max: 2,
+        axisLine: { show: false },
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+        axisLabel: { color: theme.axis, fontSize: 11 }
+      },
+      series: d.series.map((s, i) => ({
+        type: 'line',
+        name: s.name,
+        data: s.data,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 4,
+        lineStyle: { color: colors[i % colors.length], width: 2 },
+        itemStyle: { color: colors[i % colors.length] }
+      }))
+    }
+  }
+
+  function buildRadarOption(): EChartsOption {
+    return {
+      tooltip: { trigger: 'item' },
+      legend: {
+        data: MOCK_CHANNEL_RADAR.map((s) => s.name),
+        bottom: 0,
+        textStyle: { color: theme.label, fontSize: 11 }
+      },
+      radar: {
+        indicator: MOCK_RADAR_INDICATORS,
+        center: ['50%', '52%'],
+        radius: '58%',
+        axisName: { color: theme.axis, fontSize: 11 },
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+        splitArea: {
+          show: true,
+          areaStyle: { color: ['rgba(255,255,255,0.02)', 'rgba(255,255,255,0.05)'] }
+        }
+      },
+      series: [
+        {
+          type: 'radar',
+          data: MOCK_CHANNEL_RADAR.map((item, i) => ({
+            name: item.name,
+            value: item.value,
+            symbolSize: 4,
+            lineStyle: { width: 1.5, color: colors[i % colors.length] },
+            itemStyle: { color: colors[i % colors.length] },
+            areaStyle: { opacity: 0.2, color: colors[i % colors.length] }
+          }))
+        }
+      ]
+    }
+  }
+
+  let resizeObserver: ResizeObserver | null = null
+  const cardCharts = ref<{ destroyChart?: () => void }[]>([])
+
+  onMounted(() => {
+    updateScale()
+    updateTime()
+    timeTimer = setInterval(updateTime, 1000)
+    if (rootRef.value) {
+      resizeObserver = new ResizeObserver(() => updateScale())
+      resizeObserver.observe(rootRef.value)
+    }
+    window.addEventListener('resize', updateScale)
+
+    nextTick(() => {
+      // 每个 KPI 卡片的迷你趋势图
+      channelKpiCards.value.forEach((card) => {
+        const el = cardChartRefs.value[card.id]
+        if (el) {
+          const chart = useChart()
+          cardCharts.value.push(chart)
+          chart.chartRef!.value = el
+          chart.initChart(buildMiniTrendOption(card.trendData))
+        }
+      })
+      if (roiTrendRef.value) {
+        chartRoiTrend.chartRef!.value = roiTrendRef.value
+        chartRoiTrend.initChart(buildRoiTrendOption())
+      }
+      if (radarRef.value) {
+        chartRadar.chartRef!.value = radarRef.value
+        chartRadar.initChart(buildRadarOption())
+      }
+    })
+  })
+
+  onUnmounted(() => {
+    if (timeTimer) clearInterval(timeTimer)
+    if (resizeObserver && rootRef.value) {
+      resizeObserver.unobserve(rootRef.value)
+      resizeObserver = null
+    }
+    window.removeEventListener('resize', updateScale)
+    cardCharts.value.forEach((c) => c.destroyChart?.())
+    chartRoiTrend.destroyChart?.()
+    chartRadar.destroyChart?.()
+  })
 </script>
 
 <style lang="scss" scoped>
-.finance-screen-root {
-  position: relative;
-  width: 100%;
-  height: var(--art-full-height, calc(100vh - 120px));
-  overflow: auto;
-  background: #0a0e1a;
-  box-sizing: border-box;
-}
-
-.finance-screen-wrap {
-  position: absolute;
-  left: 0;
-  top: 0;
-  padding: 16px 24px;
-  background: linear-gradient(180deg, #0d1220 0%, #0a0e1a 100%);
-}
-
-.finance-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  padding: 12px 20px;
-  border: 1px solid rgba(74, 190, 255, 0.2);
-  border-radius: 8px;
-  background: rgba(74, 190, 255, 0.04);
-}
-
-.header-left {
-  flex: 1;
-  .logo-text {
-    font-size: 14px;
-    color: #8b9dc3;
+  .finance-screen-root {
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    height: var(--art-full-height, calc(100vh - 120px));
+    overflow: auto;
+    background: #0a0e1a;
   }
-}
 
-.header-title {
-  flex: 1;
-  margin: 0;
-  font-size: 26px;
-  font-weight: 700;
-  text-align: center;
-  color: #e8edf5;
-  text-shadow: 0 0 20px rgba(74, 190, 255, 0.5);
-  letter-spacing: 4px;
-}
+  .finance-screen-wrap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 16px 24px;
+    background: linear-gradient(180deg, #0d1220 0%, #0a0e1a 100%);
+  }
 
-.header-right {
-  flex: 1;
-  text-align: right;
-  font-size: 14px;
-  color: #8b9dc3;
-}
-
-.finance-body {
-  display: grid;
-  grid-template-columns: 320px 1fr 320px;
-  gap: 16px;
-  height: calc(1080px - 16px - 60px - 16px);
-  min-height: 560px;
-}
-
-.panel {
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-  overflow: hidden;
-
-  &.panel-left,
-  &.panel-right {
+  .finance-header {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 12px;
-    overflow-y: auto;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    margin-bottom: 16px;
+    background: rgb(74 190 255 / 4%);
+    border: 1px solid rgb(74 190 255 / 20%);
+    border-radius: 8px;
   }
 
-  &.panel-center {
-    padding: 8px;
-  }
-}
-
-.block {
-  flex-shrink: 0;
-  padding: 12px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-
-  .block-title {
+  .header-left {
     font-size: 14px;
-    font-weight: 600;
     color: #b8c5d9;
-    margin-bottom: 10px;
+  }
 
-    .icon {
-      margin-right: 6px;
+  .header-filters {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 13px;
+    color: #8b9dc3;
+
+    .filter-divider {
+      color: rgb(255 255 255 / 30%);
     }
   }
-}
 
-.kpi-main {
-  display: flex;
-  flex-direction: column;
-  .kpi-value {
-    font-size: 28px;
-    font-weight: 700;
-    color: #4ABEFF;
+  .header-right .btn-export {
+    padding: 6px 14px;
+    font-size: 13px;
+    color: #4abeff;
+    cursor: pointer;
+    background: rgb(74 190 255 / 12%);
+    border: 1px solid rgb(74 190 255 / 40%);
+    border-radius: 6px;
+
+    &:hover {
+      background: rgb(74 190 255 / 20%);
+    }
   }
-  .kpi-label {
+
+  .row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .row-1 {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+
+  .kpi-card {
+    position: relative;
+    min-height: 200px;
+    padding: 14px;
+    background: rgb(255 255 255 / 3%);
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 8px;
+
+    .kpi-card-head {
+      margin-bottom: 8px;
+    }
+
+    .kpi-card-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #b8c5d9;
+    }
+
+    .kpi-card-roi {
+      margin-bottom: 10px;
+
+      .roi-value {
+        margin-right: 8px;
+        font-size: 26px;
+        font-weight: 700;
+        color: #e8edf5;
+      }
+
+      .roi-change {
+        font-size: 13px;
+
+        &.up {
+          color: #14deba;
+        }
+
+        &.down {
+          color: #f56c6c;
+        }
+      }
+    }
+
+    .kpi-card-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: #8b9dc3;
+    }
+
+    .kpi-card-quality {
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: #8b9dc3;
+    }
+
+    .kpi-card-mini-chart {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      left: 14px;
+      height: 42px;
+    }
+  }
+
+  .row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    min-height: 320px;
+  }
+
+  .panel {
+    padding: 14px;
+    overflow: hidden;
+    background: rgb(255 255 255 / 2%);
+    border: 1px solid rgb(255 255 255 / 8%);
+    border-radius: 8px;
+
+    .panel-title {
+      margin-bottom: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #b8c5d9;
+    }
+
+    .chart-dom {
+      height: 260px;
+      min-height: 200px;
+    }
+  }
+
+  .panel-heatmap .heatmap-wrap {
+    max-height: 260px;
+    overflow: auto;
+  }
+
+  .heatmap-table {
+    width: 100%;
+    font-size: 12px;
+    border-collapse: collapse;
+
+    th,
+    td {
+      padding: 6px 10px;
+      text-align: center;
+      border: 1px solid rgb(255 255 255 / 6%);
+    }
+
+    th {
+      font-weight: 500;
+      color: #8b9dc3;
+      background: rgb(0 0 0 / 20%);
+    }
+
+    .cell-channel {
+      color: #b8c5d9;
+      text-align: left;
+    }
+
+    .cell-high {
+      color: #14deba;
+      background: rgb(20 222 186 / 25%);
+    }
+
+    .cell-low {
+      color: #f56c6c;
+      background: rgb(245 108 108 / 25%);
+    }
+  }
+
+  .row-3 {
+    display: block;
+  }
+
+  .panel-table {
+    .table-wrap {
+      max-height: 320px;
+      overflow: auto;
+    }
+  }
+
+  .detail-table {
+    width: 100%;
+    font-size: 12px;
+    border-collapse: collapse;
+
+    th,
+    td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgb(255 255 255 / 6%);
+    }
+
+    th {
+      font-weight: 500;
+      color: #8b9dc3;
+      white-space: nowrap;
+    }
+
+    td {
+      color: #b8c5d9;
+    }
+
+    .mini-bar {
+      display: inline-block;
+      width: 24px;
+      height: 6px;
+      margin-left: 4px;
+      vertical-align: middle;
+      border-radius: 2px;
+
+      &.up {
+        background: #14deba;
+      }
+
+      &.down {
+        background: #f56c6c;
+      }
+    }
+
+    .arrow {
+      margin-left: 2px;
+
+      &.up {
+        color: #14deba;
+      }
+
+      &.down {
+        color: #f56c6c;
+      }
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      margin-right: 4px;
+      vertical-align: middle;
+      border-radius: 50%;
+
+      &.excellent {
+        background: #14deba;
+      }
+
+      &.average {
+        background: #e6a23c;
+      }
+
+      &.poor {
+        background: #f56c6c;
+      }
+    }
+  }
+
+  .pagination-wrap {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding-top: 12px;
+    margin-top: 12px;
     font-size: 12px;
     color: #8b9dc3;
+    border-top: 1px solid rgb(255 255 255 / 6%);
+
+    .page-btn {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 6px;
+      font-size: 12px;
+      color: #b8c5d9;
+      cursor: pointer;
+      background: rgb(255 255 255 / 6%);
+      border: 1px solid rgb(255 255 255 / 10%);
+      border-radius: 4px;
+
+      &:hover:not(:disabled) {
+        background: rgb(74 190 255 / 15%);
+        border-color: rgb(74 190 255 / 30%);
+      }
+
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+      }
+
+      &.active {
+        color: #e8edf5;
+        background: rgb(74 190 255 / 25%);
+        border-color: #4abeff;
+      }
+    }
+
+    .page-size {
+      margin-left: 12px;
+    }
+
+    .page-jump {
+      margin-left: auto;
+
+      input {
+        width: 40px;
+        padding: 2px 6px;
+        margin: 0 4px;
+        font-size: 12px;
+        color: #b8c5d9;
+        text-align: center;
+        background: rgb(255 255 255 / 6%);
+        border: 1px solid rgb(255 255 255 / 10%);
+        border-radius: 4px;
+      }
+    }
   }
-}
-
-.kpi-compare {
-  font-size: 12px;
-  margin: 6px 0 12px;
-  &.down {
-    color: #f56c6c;
-  }
-}
-
-.gauges {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  height: 100px;
-}
-
-.gauge-dom {
-  height: 100%;
-  min-height: 80px;
-}
-
-.gauge-labels {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 4px;
-  font-size: 11px;
-  color: #8b9dc3;
-  text-align: center;
-}
-
-.chart-dom {
-  height: 160px;
-  min-height: 120px;
-}
-
-.china-map-dom {
-  width: 100%;
-  height: 100%;
-  min-height: 400px;
-}
-
-.rank-table-wrap {
-  overflow: auto;
-  max-height: 200px;
-}
-
-.rank-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-
-  th,
-  td {
-    padding: 6px 8px;
-    text-align: left;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  th {
-    color: #8b9dc3;
-    font-weight: 500;
-  }
-
-  td {
-    color: #b8c5d9;
-  }
-}
 </style>
