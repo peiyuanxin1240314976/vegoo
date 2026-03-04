@@ -14,7 +14,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default ({ mode }: { mode: string }) => {
   const root = process.cwd()
   const env = loadEnv(mode, root)
-  const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_URL, VITE_API_PROXY_URL } = env
+  const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_URL, VITE_API_PROXY_URL, VITE_USE_EMBEDDED_DEVTOOLS } = env
 
   console.log(`🚀 API_URL = ${VITE_API_URL}`)
   console.log(`🚀 VERSION = ${VITE_VERSION}`)
@@ -30,6 +30,12 @@ export default ({ mode }: { mode: string }) => {
         '/api': {
           target: VITE_API_PROXY_URL,
           changeOrigin: true
+        },
+        // 世界地图等：ECharts 官方（中国地图已改用 china-map-echarts 包，无需代理）
+        '/geo': {
+          target: 'https://echarts.apache.org',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/geo/, '/examples/data/asset/geo')
         }
       },
       host: true
@@ -97,7 +103,8 @@ export default ({ mode }: { mode: string }) => {
         threshold: 10240, // 只有大小大于该值的资源会被处理 10240B = 10KB
         deleteOriginFile: false // 压缩后是否删除原文件
       }),
-      vueDevTools()
+      // 仅在没有安装浏览器 Vue Devtools 扩展时启用，避免 "Another version of Vue Devtools" 报错
+      ...(VITE_USE_EMBEDDED_DEVTOOLS === 'true' ? [vueDevTools()] : [])
       // 打包分析
       // visualizer({
       //   open: true,

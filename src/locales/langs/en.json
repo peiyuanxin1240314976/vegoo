@@ -244,7 +244,9 @@
     },
     "dashboard": {
       "title": "Dashboard",
-      "console": "Console"
+      "console": "Console",
+      "bigScreen": "Data Screen",
+      "financeScreen": "Finance Analysis"
     },
     "result": {
       "title": "Result Page",

@@ -19,6 +19,24 @@ export const dashboardRoutes: AppRouteRecord = {
         keepAlive: false,
         fixedTab: true
       }
+    },
+    {
+      path: 'big-screen',
+      name: 'BigScreen',
+      component: '/dashboard/big-screen',
+      meta: {
+        title: 'menus.dashboard.bigScreen',
+        keepAlive: false
+      }
+    },
+    {
+      path: 'finance-screen',
+      name: 'FinanceScreen',
+      component: '/dashboard/finance-screen',
+      meta: {
+        title: 'menus.dashboard.financeScreen',
+        keepAlive: false
+      }
     }
   ]
 }

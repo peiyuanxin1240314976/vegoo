@@ -244,7 +244,9 @@
     },
     "dashboard": {
       "title": "仪表盘",
-      "console": "工作台"
+      "console": "工作台",
+      "bigScreen": "数据大屏",
+      "financeScreen": "金融客户分析"
     },
     "result": {
       "title": "结果页面",

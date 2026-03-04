@@ -26,9 +26,15 @@
 
     #app-content {
       flex: 1;
+      min-height: 0; /* 允许在 flex 中收缩，避免内容把整页撑高导致无法形成滚动 */
+      display: flex;
+      flex-direction: column;
 
       :deep(.layout-content) {
         box-sizing: border-box;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto; /* 主题区域内容超出时在此滚动 */
         width: calc(100% - 40px);
         margin: auto;
 
@@ -37,7 +43,7 @@
           position: relative;
           box-sizing: border-box;
           padding: 20px;
-          overflow: hidden;
+          overflow: visible; /* 改为 visible，避免裁切内容导致无法滚动 */
           background: var(--default-box-color);
           border-radius: calc(var(--custom-radius) / 2 + 2px) !important;
         }
